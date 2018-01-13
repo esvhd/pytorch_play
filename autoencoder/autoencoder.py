@@ -76,69 +76,26 @@ class LinearAutoEncoder(nn.Module):
         # build encoders
         self.encoder = LinearEncoder(input_dim, layer_dims, bias)
         self.decoder = LinearEncoder(de_input_dim, de_layer_dims, bias)
-        # self.model = nn.Sequential(self.encoder, self.decoder)
 
     def forward(self, x):
-        # data = Variable(x, requires_grad=False)
-        # return self.decoder(self.encoder(data))
         encoding = self.encoder(x)
         out = self.decoder(encoding)
         return encoding, out
 
-    #     self.use_cuda = torch.cuda.is_available()
-    #     if self.use_cuda:
-    #         self.encoder = self.encoder.cuda()
-    #         self.decoder = self.decoder.cuda()
-
-    #     self.loss_func = nn.MSELoss()
-
-    # def __str__(self):
-    #     desc = 'encoder:\n'
-    #     desc += self.encoder.__str__() + '\n'
-
-    #     desc += 'decoder:\n'
-    #     desc += self.decoder.__str__()
-
-    #     return desc
-
-    # def train(self, x, num_epoch, print_every=100):
-    #     params = (list(self.encoder.parameters()) +
-    #               list(self.decoder.parameters()))
-
-    #     lost_hist = []
-    #     optimizer = torch.optim.Adam(params, lr=self.learning_rate)
-
-    #     for i in range(num_epoch):
-    #         for z in x:
-    #             optimizer.zero_grad()
-
-    #             loss = self.compute_loss(z)
-
-    #             loss.backward()
-
-    #             optimizer.step()
-
-    #         if i % print_every == 0:
-    #             print('Epoch: %d, loss=%.5e' % (i, loss.data[0]))
-    #             # loss.cpu() if self.use_cuda else loss)
-    #         lost_hist.append(loss.data[0])
-    #     return lost_hist
-
-    # def encode(self, x):
-    #     data = Variable(x, requires_grad=False)
-    #     return self.encoder(data)
-
-    # def compute_loss(self, x):
-    #     # data = Variable(x, requires_grad=False)
-
-    #     out = self.encoder.forward(x)
-    #     y = self.decoder.forward(out)
-
-    #     loss = self.loss_func(y, x)
-    #     return loss
-
 
 def format_seconds(seconds):
+    """Format seconds to %H:%M:%S
+
+    Parameters
+    ----------
+    seconds : float
+        seconds
+
+    Returns
+    -------
+    str
+        str format for datetime.timedelta, i.e. %H:%M:%S.
+    """
     d = datetime.timedelta(seconds=seconds)
     return str(d)
 
@@ -148,6 +105,35 @@ def train(model, loss_criterion, x,
           epochs=1,
           optimizer='adam',
           print_every=100):
+    """Train autoencoders.
+
+    Parameters
+    ----------
+    model : subclasses of torch.nn.Module
+        Pytorch model
+    loss_criterion : TYPE
+        loss function
+    x : tensors
+        training data
+    learning_rate : float
+        learning rate
+    epochs : int, optional
+        default 1.
+    optimizer : str, optional
+        choice of optimizer, default 'adam'. Others currently not supported.
+    print_every : int, optional
+        print loss and perf stats for every given epochs.
+
+    Returns
+    -------
+    list
+        training loss history
+
+    Raises
+    ------
+    NotImplementedError
+        Other optimizer methods not yet supported.
+    """
     params = model.parameters()
 
     assert(optimizer in {'adam', 'SGD', 'ada'})
@@ -159,8 +145,9 @@ def train(model, loss_criterion, x,
 
     lost_hist = []
 
+    # perf time includes sleep and is system wide, seconds.
     total_wall = time.perf_counter()
-    # process in fractions of seconds
+    # process time does not include sleep time, seconds.
     total_proc = time.process_time()
 
     for i in range(epochs):
@@ -171,6 +158,8 @@ def train(model, loss_criterion, x,
             z_x = Variable(z)
             y = Variable(z, requires_grad=False)
             _, y_pred = model(z_x)
+
+            # for auto encoders, x and y are the same.
             loss = loss_criterion(y_pred, y)
 
             optimizer.zero_grad()
@@ -181,7 +170,7 @@ def train(model, loss_criterion, x,
         proc_time = time.process_time() - proc_time
 
         if i % print_every == 0:
-            print('Epoch: %d, loss=%.5e, wall time=%s, proc time=%s' %
+            print('Epoch: %d, loss=%.5e, perf time=%s, proc time=%s' %
                   (i,
                    loss.data[0],
                    format_seconds(wall_time),
@@ -192,7 +181,7 @@ def train(model, loss_criterion, x,
     total_wall = time.perf_counter() - total_wall
     total_proc = time.process_time() - total_proc
 
-    print('Wall time=%s, process time=%s' %
+    print('perf time=%s, process time=%s' %
           (format_seconds(total_wall), format_seconds(total_proc)))
 
     return lost_hist
