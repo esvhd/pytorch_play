@@ -170,7 +170,7 @@ def train(model, loss_criterion, x,
         for z in x:
             z_x = Variable(z)
             y = Variable(z, requires_grad=False)
-            y_pred = model(z_x)
+            _, y_pred = model(z_x)
             loss = loss_criterion(y_pred, y)
 
             optimizer.zero_grad()
