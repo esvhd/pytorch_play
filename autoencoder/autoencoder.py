@@ -7,6 +7,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torchvision.datasets as dataset
 import time
+import datetime
 
 
 class LinearEncoder(nn.Module):
@@ -137,6 +138,11 @@ class LinearAutoEncoder(nn.Module):
     #     return loss
 
 
+def format_seconds(seconds):
+    d = datetime.timedelta(seconds=seconds)
+    return str(d)
+
+
 def train(model, loss_criterion, x,
           learning_rate,
           epochs=1,
@@ -174,9 +180,10 @@ def train(model, loss_criterion, x,
 
         if i % print_every == 0:
             print('Epoch: %d, loss=%.5e, wall time=%s, proc time=%s' %
-                  (i, loss.data[0],
-                   time.strftime('%H:%M:%S', wall_time),
-                   time.strftime('%H:%M:%S', proc_time)))
+                  (i,
+                   loss.data[0],
+                   format_seconds(wall_time),
+                   format_seconds(proc_time)))
             # loss.cpu() if self.use_cuda else loss)
         lost_hist.append(loss.data[0])
 
@@ -184,8 +191,7 @@ def train(model, loss_criterion, x,
     total_proc = time.process_time() - total_proc
 
     print('Wall time=%s, process time=%s' %
-          (time.strftime('%H:%M:%S', total_wal),
-           time.strftime('%H:%M:%S', total_proc)))
+          (format_seconds(total_wal), format_seconds(total_proc)))
 
     return lost_hist
 
