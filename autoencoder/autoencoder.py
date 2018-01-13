@@ -159,12 +159,12 @@ def train(model, loss_criterion, x,
 
     lost_hist = []
 
-    total_wall = time.time()
+    total_wall = time.perf_counter()
     # process in fractions of seconds
     total_proc = time.process_time()
 
     for i in range(epochs):
-        wall_time = time.time()
+        wall_time = time.perf_counter()
         proc_time = time.process_time()
 
         for z in x:
@@ -177,7 +177,7 @@ def train(model, loss_criterion, x,
             loss.backward()
             optimizer.step()
 
-        wall_time = time.time() - wall_time
+        wall_time = time.perf_counter() - wall_time
         proc_time = time.process_time() - proc_time
 
         if i % print_every == 0:
@@ -189,11 +189,11 @@ def train(model, loss_criterion, x,
             # loss.cpu() if self.use_cuda else loss)
         lost_hist.append(loss.data[0])
 
-    total_wall = time.time() - total_wal
+    total_wall = time.perf_counter() - total_wall
     total_proc = time.process_time() - total_proc
 
     print('Wall time=%s, process time=%s' %
-          (format_seconds(total_wal), format_seconds(total_proc)))
+          (format_seconds(total_wall), format_seconds(total_proc)))
 
     return lost_hist
 
