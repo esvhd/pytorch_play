@@ -168,9 +168,9 @@ def train(model, loss_criterion, x,
         proc_time = time.process_time()
 
         for z in x:
-            z = Variable(z)
+            z_x = Variable(z)
             y = Variable(z, requires_grad=False)
-            y_pred = model(z)
+            y_pred = model(z_x)
             loss = loss_criterion(y_pred, y)
 
             optimizer.zero_grad()
