@@ -163,13 +163,15 @@ def train(model, loss_criterion, x,
     # process in fractions of seconds
     total_proc = time.process_time()
 
-    for i in range(num_epoch):
+    for i in range(epochs):
         wall_time = time.time()
         proc_time = time.process_time()
 
         for z in x:
+	    z = Variable(z)
+            y = Variable(z, requires_grad=False)
             y_pred = model(z)
-            loss = loss_criterion(y_pred, z)
+            loss = loss_criterion(y_pred, y)
 
             optimizer.zero_grad()
             loss.backward()
