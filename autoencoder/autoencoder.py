@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torchvision.datasets as dataset
+import time
 
 
 class LinearEncoder(nn.Module):
@@ -76,6 +77,13 @@ class LinearAutoEncoder(nn.Module):
         self.decoder = LinearEncoder(de_input_dim, de_layer_dims, bias)
         # self.model = nn.Sequential(self.encoder, self.decoder)
 
+    def forward(self, x):
+        # data = Variable(x, requires_grad=False)
+        # return self.decoder(self.encoder(data))
+        encoding = self.encoder(x)
+        out = self.decoder(encoding)
+        return encoding, out
+
     #     self.use_cuda = torch.cuda.is_available()
     #     if self.use_cuda:
     #         self.encoder = self.encoder.cuda()
@@ -92,50 +100,94 @@ class LinearAutoEncoder(nn.Module):
 
     #     return desc
 
-    def train(self, x, num_epoch, print_every=100):
-        params = (list(self.encoder.parameters()) +
-                  list(self.decoder.parameters()))
+    # def train(self, x, num_epoch, print_every=100):
+    #     params = (list(self.encoder.parameters()) +
+    #               list(self.decoder.parameters()))
 
-        lost_hist = []
-        optimizer = torch.optim.Adam(params, lr=self.learning_rate)
+    #     lost_hist = []
+    #     optimizer = torch.optim.Adam(params, lr=self.learning_rate)
 
-        for i in range(num_epoch):
-            for z in x:
-                optimizer.zero_grad()
+    #     for i in range(num_epoch):
+    #         for z in x:
+    #             optimizer.zero_grad()
 
-                loss = self.compute_loss(z)
+    #             loss = self.compute_loss(z)
 
-                loss.backward()
+    #             loss.backward()
 
-                optimizer.step()
+    #             optimizer.step()
 
-            if i % print_every == 0:
-                print('Epoch: %d, loss=%.5e' % (i, loss.data[0]))
-                # loss.cpu() if self.use_cuda else loss)
-            lost_hist.append(loss.data[0])
-        return lost_hist
-
-    def forward(self, x):
-        # data = Variable(x, requires_grad=False)
-        # return self.decoder(self.encoder(data))
-        encoding = self.encoder(x)
-        out = self.decoder(encoding)
-        return encoding, out
-
+    #         if i % print_every == 0:
+    #             print('Epoch: %d, loss=%.5e' % (i, loss.data[0]))
+    #             # loss.cpu() if self.use_cuda else loss)
+    #         lost_hist.append(loss.data[0])
+    #     return lost_hist
 
     # def encode(self, x):
     #     data = Variable(x, requires_grad=False)
     #     return self.encoder(data)
 
+    # def compute_loss(self, x):
+    #     # data = Variable(x, requires_grad=False)
 
-    def compute_loss(self, x):
-        # data = Variable(x, requires_grad=False)
+    #     out = self.encoder.forward(x)
+    #     y = self.decoder.forward(out)
 
-        out = self.encoder.forward(x)
-        y = self.decoder.forward(out)
+    #     loss = self.loss_func(y, x)
+    #     return loss
 
-        loss = self.loss_func(y, x)
-        return loss
+
+def train(model, loss_criterion, x,
+          learning_rate,
+          epochs=1,
+          optimizer='adam',
+          print_every=100):
+    params = model.parameters()
+
+    assert(optimizer is in {'adam', 'SGD', 'ada'})
+
+    if optimizer == 'adam':
+        optimizer = torch.optim.Adam(params, lr=learning_rate)
+    else:
+        raise NotImplementedError
+
+    lost_hist = []
+
+    total_wall = time.time()
+    # process in fractions of seconds
+    total_proc = time.process_time()
+
+    for i in range(num_epoch):
+        wall_time = time.time()
+        proc_time = time.process_time()
+
+        for z in x:
+            y_pred = model(z)
+            loss = loss_criterion(y_pred, z)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        wall_time = time.time() - wall_time
+        proc_time = time.process_time() - proc_time
+
+        if i % print_every == 0:
+            print('Epoch: %d, loss=%.5e, wall time=%s, proc time=%s' %
+                  (i, loss.data[0],
+                   time.strftime('%H:%M:%S', wall_time),
+                   time.strftime('%H:%M:%S', proc_time)))
+            # loss.cpu() if self.use_cuda else loss)
+        lost_hist.append(loss.data[0])
+
+    total_wall = time.time() - total_wal
+    total_proc = time.process_time() - total_proc
+
+    print('Wall time=%s, process time=%s' %
+          (time.strftime('%H:%M:%S', total_wal),
+           time.strftime('%H:%M:%S', total_proc)))
+
+    return lost_hist
 
 
 if __name__ == '__main__':
