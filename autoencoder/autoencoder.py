@@ -36,7 +36,7 @@ class LinearEncoder(nn.Module):
         return out
 
 
-class LinearAutoencoder:
+class LinearAutoEncoder(nn.Module):
 
     def __init__(self, input_dim, layer_dims, learning_rate, bias=False):
         '''
@@ -53,13 +53,12 @@ class LinearAutoencoder:
         bias : bool, optional, default False
             whether to add bias terms
         '''
-        super().__init__()
+        super(LinearAutoEncoder, slef).__init__()
 
         self.learning_rate = learning_rate
+        self.bias = bias
 
-        # build encoder
-        self.encoder = LinearEncoder(input_dim, layer_dims, bias)
-
+        # work out decoder dims
         # decoder is the mirror image
         de_input_dim = layer_dims[-1]
         n_layers = len(layer_dims)
@@ -72,23 +71,26 @@ class LinearAutoencoder:
             de_layer_dims = layer_dims[-2::-1]
             de_layer_dims.append(input_dim)
 
+        # build encoders
+        self.encoder = LinearEncoder(input_dim, layer_dims, bias)
         self.decoder = LinearEncoder(de_input_dim, de_layer_dims, bias)
+        # self.model = nn.Sequential(self.encoder, self.decoder)
 
-        self.use_cuda = torch.cuda.is_available()
-        if self.use_cuda:
-            self.encoder = self.encoder.cuda()
-            self.decoder = self.decoder.cuda()
+    #     self.use_cuda = torch.cuda.is_available()
+    #     if self.use_cuda:
+    #         self.encoder = self.encoder.cuda()
+    #         self.decoder = self.decoder.cuda()
 
-        self.loss_func = nn.MSELoss()
+    #     self.loss_func = nn.MSELoss()
 
-    def __str__(self):
-        desc = 'encoder:\n'
-        desc += self.encoder.__str__() + '\n'
+    # def __str__(self):
+    #     desc = 'encoder:\n'
+    #     desc += self.encoder.__str__() + '\n'
 
-        desc += 'decoder:\n'
-        desc += self.decoder.__str__()
+    #     desc += 'decoder:\n'
+    #     desc += self.decoder.__str__()
 
-        return desc
+    #     return desc
 
     def train(self, x, num_epoch, print_every=100):
         params = (list(self.encoder.parameters()) +
@@ -114,20 +116,25 @@ class LinearAutoencoder:
         return lost_hist
 
     def forward(self, x):
-        data = Variable(x, requires_grad=False)
-        return self.decoder(self.encoder(data))
+        # data = Variable(x, requires_grad=False)
+        # return self.decoder(self.encoder(data))
+        encoding = self.encoder(x)
+        out = self.decoder(encoding)
+        return encoding, out
 
-    def encode(self, x):
-        data = Variable(x, requires_grad=False)
-        return self.encoder(data)
+
+    # def encode(self, x):
+    #     data = Variable(x, requires_grad=False)
+    #     return self.encoder(data)
+
 
     def compute_loss(self, x):
-        data = Variable(x, requires_grad=False)
+        # data = Variable(x, requires_grad=False)
 
-        out = self.encoder.forward(data)
+        out = self.encoder.forward(x)
         y = self.decoder.forward(out)
 
-        loss = self.loss_func(y, data)
+        loss = self.loss_func(y, x)
         return loss
 
 
@@ -142,7 +149,7 @@ if __name__ == '__main__':
     layer_dims = [28, 10]
     learning_rate = 3e-4
 
-    coder = LinearAutoencoder(input_dim, layer_dims, learning_rate, bias=False)
+    coder = LinearAutoEncoder(input_dim, layer_dims, learning_rate, bias=False)
 
     print(coder)
 
