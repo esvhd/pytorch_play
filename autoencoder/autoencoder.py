@@ -144,7 +144,7 @@ def train(model, loss_criterion, x,
           print_every=100):
     params = model.parameters()
 
-    assert(optimizer is in {'adam', 'SGD', 'ada'})
+    assert(optimizer in {'adam', 'SGD', 'ada'})
 
     if optimizer == 'adam':
         optimizer = torch.optim.Adam(params, lr=learning_rate)
