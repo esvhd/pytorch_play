@@ -55,7 +55,7 @@ class LinearAutoEncoder(nn.Module):
         bias : bool, optional, default False
             whether to add bias terms
         '''
-        super(LinearAutoEncoder, slef).__init__()
+        super(LinearAutoEncoder, self).__init__()
 
         self.learning_rate = learning_rate
         self.bias = bias
