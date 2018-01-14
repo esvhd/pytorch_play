@@ -10,18 +10,27 @@ import time
 import datetime
 
 
-class LinearEncoder(nn.Module):
+class Encoder(nn.Module):
 
-    def __init__(self, input_dim, layer_dims, bias=False):
-        super(LinearEncoder, self).__init__()
+    def __init__(self, input_dim, layer_dims, bias=False,
+                 activation='linear',
+                 output_activation=None):
+        super(Encoder, self).__init__()
+
+        assert(activation in {'linear', 'relu', 'selu', 'tanh', 'sigmoid'})
 
         self.output_dim = layer_dims[-1]
         self.layer_dims = layer_dims
         self.input_dim = input_dim
         self.bias = bias
 
+        # determine activation function
+        layer_act = choose_activation(activation)
+        output_act = choose_activation(output_activation)
+
+        num_layers = len(layer_dims)
         self.model = nn.Sequential()
-        for n in range(len(layer_dims)):
+        for n in range(num_layers):
             if n == 0:
                 self.model.add_module(f'linear_{n}',
                                       nn.Linear(input_dim,
@@ -33,14 +42,40 @@ class LinearEncoder(nn.Module):
                                                 layer_dims[n],
                                                 bias=bias))
 
+            if n != num_layers - 1:
+                if layer_act is not None:
+                    self.model.add_module(f'{activation}_{n}', layer_act)
+            else:
+                # output layer
+                if output_act is not None:
+                    self.model.add_module(f'{activation}_{n}', output_act)
+
     def forward(self, x):
         out = self.model.forward(x)
         return out
 
 
-class LinearAutoEncoder(nn.Module):
+def choose_activation(activation):
+    # determine activation function
+    if activation == 'relu':
+        act_func = nn.ReLU()
+    elif activation == 'selu':
+        act_func = nn.SELU()
+    elif activation == 'tanh':
+        act_func = nn.Tanh()
+    elif activation == 'sigmoid':
+        act_func = nn.Sigmoid()
+    else:
+        act_func = None
 
-    def __init__(self, input_dim, layer_dims, learning_rate, bias=False):
+    return act_func
+
+
+class AutoEncoder(nn.Module):
+
+    def __init__(self, input_dim, layer_dims, learning_rate, bias=False,
+                 activation='linear',
+                 output_activation=None):
         '''
         Linear Autoencoder. Decoder is the mirror image of encoder.
 
@@ -54,8 +89,14 @@ class LinearAutoEncoder(nn.Module):
             learning rate
         bias : bool, optional, default False
             whether to add bias terms
+        activation : str, optional
+            Activation function for all layers except the final output layer.
+            Default linear, i.e. no activation.
+        output_activation : None, optional
+            Activation function for the final output layer.
+            Default None, same as linear, i.e. no activation.
         '''
-        super(LinearAutoEncoder, self).__init__()
+        super(AutoEncoder, self).__init__()
 
         self.learning_rate = learning_rate
         self.bias = bias
@@ -74,8 +115,10 @@ class LinearAutoEncoder(nn.Module):
             de_layer_dims.append(input_dim)
 
         # build encoders
-        self.encoder = LinearEncoder(input_dim, layer_dims, bias)
-        self.decoder = LinearEncoder(de_input_dim, de_layer_dims, bias)
+        self.encoder = Encoder(input_dim, layer_dims, bias, activation,
+                               output_activation)
+        self.decoder = Encoder(de_input_dim, de_layer_dims, bias, activation,
+                               output_activation)
 
     def forward(self, x):
         encoding = self.encoder(x)
@@ -188,21 +231,50 @@ def train(model, loss_criterion, x,
 
 
 if __name__ == '__main__':
+    import sklearn.decomposition as skd
+    import numpy as np
+
     # load data
     mnist_train = dataset.MNIST('/home/zwl/data/MNIST', train=True,
                                 download=False)
-    mnist_test = dataset.MNIST('/home/zwl/data/MNIST', train=False,
-                               download=False)
 
-    input_dim = mnist_train.train_data[0].shape[1]
-    layer_dims = [28, 10]
+    use_cuda = torch.cuda.is_available()
+
+    x = mnist_train.train_data.float()
+
+    if use_cuda:
+        print('Using GPU.')
+        x = x.cuda()
+
+    # set up training
+    loss_criterion = torch.nn.MSELoss(size_average=True)
     learning_rate = 3e-4
 
-    coder = LinearAutoEncoder(input_dim, layer_dims, learning_rate, bias=False)
+    # setup architecture, use linear single layer autoencoder
+    input_dim = mnist_train.train_data[0].shape[1]
+    layer_dims = [10]
+    learning_rate = 3e-4
 
+    coder = AutoEncoder(input_dim, layer_dims, learning_rate, bias=False,
+                        activation='linear', output_activation=None)
+    if use_cuda:
+        coder = coder.cuda()
     print(coder)
 
-    coder.train(mnist_train.train_data, num_epoch=10)
+    # training
+    data_idx = 10000
+    train(coder, loss_criterion, x[data_idx:data_idx + 1],
+          learning_rate,
+          epochs=7000, print_every=200)
 
-    y = coder.forward(mnist_test.test_data[3])
-    print(y.shape)
+    encoding, out = coder.forward(torch.autograd.Variable(x[data_idx],
+                                                          requires_grad=False))
+    loss = x[data_idx].sub(out.data).pow(2).mean()
+
+    # work out PCA loss
+    pca = skd.PCA(n_components=10)
+    pca_out = pca.fit_transform(x[data_idx].float())
+    inverse = pca.inverse_transform(pca_out)
+    pca_loss = np.power((x[data_idx].cpu().numpy() - inverse), 2).mean()
+
+    print(f'Final loss: {loss:.5e} vs PCA loss: {pca_loss:.5e}.')
