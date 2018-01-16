@@ -45,10 +45,14 @@ class Encoder(nn.Module):
             if n != num_layers - 1:
                 if layer_act is not None:
                     self.model.add_module(f'{activation}_{n}', layer_act)
+                else:
+                    print('No layer activation function.')
             else:
                 # output layer
                 if output_act is not None:
                     self.model.add_module(f'{activation}_{n}', output_act)
+                else:
+                    print('No output activation function.')
 
     def forward(self, x):
         out = self.model.forward(x)
@@ -75,9 +79,11 @@ class AutoEncoder(nn.Module):
 
     def __init__(self, input_dim, layer_dims, learning_rate, bias=False,
                  activation='linear',
-                 output_activation=None):
+                 encoder_output_activation=None,
+                 decoder_output_activation=None):
         '''
-        Linear Autoencoder. Decoder is the mirror image of encoder.
+        Autoencoder. Decoder is the mirror image of encoder without the
+        output activation transform.
 
         Parameters
         ----------
@@ -92,8 +98,11 @@ class AutoEncoder(nn.Module):
         activation : str, optional
             Activation function for all layers except the final output layer.
             Default linear, i.e. no activation.
-        output_activation : None, optional
-            Activation function for the final output layer.
+        encoder_output_activation : None, optional
+            Activation function for the final output layer for the encoder.
+            Default None, same as linear, i.e. no activation.
+        decoder_output_activation : None, optional
+            Activation function for the final output layer for the decoder.
             Default None, same as linear, i.e. no activation.
         '''
         super(AutoEncoder, self).__init__()
@@ -109,16 +118,17 @@ class AutoEncoder(nn.Module):
             de_layer_dims = [input_dim]
         else:
             # indexing:
-            # -2 - from element -2 onwards
-            # ::-1 - reverse order
+            # -2: from element position -2 onwards, i.e. not including the
+            # last layer dim from the encoder.
+            # `::-1`:reverse order
             de_layer_dims = layer_dims[-2::-1]
             de_layer_dims.append(input_dim)
 
         # build encoders
         self.encoder = Encoder(input_dim, layer_dims, bias, activation,
-                               output_activation)
+                               encoder_output_activation)
         self.decoder = Encoder(de_input_dim, de_layer_dims, bias, activation,
-                               output_activation)
+                               decoder_output_activation)
 
     def forward(self, x):
         encoding = self.encoder(x)
@@ -143,8 +153,7 @@ def format_seconds(seconds):
     return str(d)
 
 
-def train(model, loss_criterion, x,
-          learning_rate,
+def train(model, loss_criterion, x, learning_rate,
           epochs=1,
           optimizer='adam',
           print_every=100):
@@ -214,11 +223,9 @@ def train(model, loss_criterion, x,
 
         if i % print_every == 0:
             print('Epoch: %d, loss=%.5e, perf time=%s, proc time=%s' %
-                  (i,
-                   loss.data[0],
-                   format_seconds(wall_time),
-                   format_seconds(proc_time)))
-            # loss.cpu() if self.use_cuda else loss)
+                  (i, loss.data[0],
+                   format_seconds(wall_time), format_seconds(proc_time)))
+
         lost_hist.append(loss.data[0])
 
     total_wall = time.perf_counter() - total_wall
@@ -253,22 +260,21 @@ if __name__ == '__main__':
     # setup architecture, use linear single layer autoencoder
     input_dim = mnist_train.train_data[0].shape[1]
     layer_dims = [10]
-    learning_rate = 3e-4
 
     coder = AutoEncoder(input_dim, layer_dims, learning_rate, bias=False,
-                        activation='linear', output_activation=None)
+                        activation='linear',
+                        encoder_output_activation=None,
+                        decoder_output_activation=None)
     if use_cuda:
         coder = coder.cuda()
     print(coder)
 
-    # training
-    data_idx = 10000
-    train(coder, loss_criterion, x[data_idx:data_idx + 1],
-          learning_rate,
-          epochs=7000, print_every=200)
+    # training, take first 1k examples
+    data_idx = 1000
+    train(coder, loss_criterion, x[:data_idx], learning_rate,
+          epochs=100, print_every=20)
 
-    encoding, out = coder.forward(torch.autograd.Variable(x[data_idx],
-                                                          requires_grad=False))
+    encoding, out = coder.forward(Variable(x[data_idx], requires_grad=False))
     loss = x[data_idx].sub(out.data).pow(2).mean()
 
     # work out PCA loss
@@ -277,4 +283,4 @@ if __name__ == '__main__':
     inverse = pca.inverse_transform(pca_out)
     pca_loss = np.power((x[data_idx].cpu().numpy() - inverse), 2).mean()
 
-    print(f'Final loss: {loss:.5e} vs PCA loss: {pca_loss:.5e}.')
+    print(f'Test AE loss: {loss:.5e} vs PCA loss: {pca_loss:.5e}.')
