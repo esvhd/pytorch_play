@@ -153,7 +153,7 @@ def format_seconds(seconds):
     return str(d)
 
 
-def train(model, loss_criterion, x, learning_rate,
+def train(model, loss_function, x, learning_rate,
           epochs=1,
           optimizer='adam',
           print_every=100):
@@ -163,7 +163,7 @@ def train(model, loss_criterion, x, learning_rate,
     ----------
     model : subclasses of torch.nn.Module
         Pytorch model
-    loss_criterion : TYPE
+    loss_function : TYPE
         loss function
     x : tensors
         training data
@@ -212,7 +212,7 @@ def train(model, loss_criterion, x, learning_rate,
             _, y_pred = model(z_x)
 
             # for auto encoders, x and y are the same.
-            loss = loss_criterion(y_pred, y)
+            loss = loss_function(y_pred, y)
 
             optimizer.zero_grad()
             loss.backward()
@@ -254,7 +254,7 @@ if __name__ == '__main__':
         x = x.cuda()
 
     # set up training
-    loss_criterion = torch.nn.MSELoss(size_average=True)
+    loss_function = torch.nn.MSELoss(size_average=True)
     learning_rate = 3e-4
 
     # setup architecture, use linear single layer autoencoder
@@ -271,7 +271,7 @@ if __name__ == '__main__':
 
     # training, take first 1k examples
     data_idx = 1000
-    train(coder, loss_criterion, x[:data_idx], learning_rate,
+    train(coder, loss_function, x[:data_idx], learning_rate,
           epochs=100, print_every=20)
 
     encoding, out = coder.forward(Variable(x[data_idx], requires_grad=False))
