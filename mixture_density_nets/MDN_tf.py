@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.contrib.distributions as tfd
 import tensorflow.contrib.keras as K
 
+import pandas as pd
 import numpy as np
 import scipy.stats as ss
 import matplotlib.pyplot as plt
@@ -131,7 +132,9 @@ class MixtureDensityNet:
 
         sigma_out = K.layers.Dense(self.sigma_dims,
                                    activation='tanh',
-                                   name='sigma')(inputs)
+                                   name='sigma_tanh')(inputs)
+        sigma_out = K.layers.Dense(self.sigma_dims, activation=None,
+                                   name='sigma_linear')(sigma_out)
 
         outputs = K.layers.concatenate([alpha_out, mu_out, sigma_out], axis=-1)
 
@@ -143,6 +146,46 @@ class MixtureDensityNet:
         model.compile('adam', loss=self.mdn_loss)
 
         self.model = model
+
+
+def split_mdn_output(y_hat, num_mixtures, mu_dims, scale_dims):
+    '''
+    Split alpha, mu and scale parameters frmo the output of a mixture
+    density network
+
+    Parameters
+    ----------
+    y_hat : TYPE
+        output from mixture density nets
+    num_mixtures : TYPE
+        number of mixtures
+    mu_dims : TYPE
+        length of mu parameters, should be num_mixtures * single density mu
+        size.
+    scale_dims : TYPE
+        length of scale parameters, should be num_mixtues * single density
+        scale size.
+
+    Returns
+    -------
+    tuple of (alpha, mu, scale)
+    '''
+    N, y_dim = y_hat.shape
+    total = num_mixtures + mu_dims + scale_dims
+    assert(total == y_dim), print(f'{total} != {y_dim}')
+
+    alpha = y_hat[:, :num_mixtures]
+
+    idx = num_mixtures + mu_dims
+    mu = y_hat[:, num_mixtures:idx]
+
+    scale = y_hat[:, idx:]
+
+    # reshape
+    mu = mu.reshape((N, num_mixtures, -1))
+    scale = scale.reshape((N, num_mixtures, -1))
+
+    return (alpha, mu, scale)
 
 
 def symmetric_from_tril(N: int, lower):
@@ -212,16 +255,84 @@ def sample_gaussian_tril(mu, scale, n: int=1):
     '''
     mvn = MultivariateGaussianTril(mu, scale)
     samples = mvn.sample(n).eval()
+    # with tf.Session() as sess:
+    #    samples = mvn.sample(n).eval()
     return samples
 
 
+# def sample_gaussian_numpy(mu, scale, n: int=1):
+#     lower = tfd.fill_triangular(scale, upper=False).eval()
+#     cov = np.dot(lower, lower.T)
+#     samples = np.random.multivariate_normal(mu, cov, n)
+#     return samples
+
+
+def load_fin_data():
+    etf = pd.read_hdf('/home/zwl/data/etf.h5', key='close')
+    cols = ['SPY US Equity', 'HYG US Equity', 'IEF US Equity']
+    px = etf[cols]
+    rtns = np.log(px) - np.log(px.shift(1))
+    rtns = rtns.dropna(how='any')
+    return rtns
+
+
 if __name__ == '__main__':
-    x_train, y_train = generate_data(5000)
+    import time
+    import os.path as osp
+    import mixture_density_nets.MDN as M
+    # # x_train, y_train = generate_data(5000)
 
-    mdn = MixtureDensityNet(3, 2)
-    mdn.make_model()
+    # x_train = y_train = load_fin_data()
+    # x_train *= 1000
 
-    print(mdn.model.summary())
+    # num_mixtures = 5
+    # _, mu_dims = x_train.shape
+    # scale_dims, *_ = np.tril_indices(mu_dims)[0].shape
 
-    print('\nTraining...')
-    history = mdn.model.fit(x_train, y_train, epochs=10)
+    # mdn = MixtureDensityNet(num_mixtures, mu_dims)
+    # mdn.make_model()
+
+    # print(mdn.model.summary())
+
+    # print('\nTraining...')
+    # epochs = 10
+    # history = mdn.model.fit(x_train, y_train, epochs=epochs)
+
+    # output = mdn.model.predict(x_train)
+    # alpha, mu, scale = split_mdn_output(output, num_mixtures,
+    #                                     mu_dims * num_mixtures,
+    #                                     scale_dims * num_mixtures)
+    # # make sure weights sum to 1
+    # assert(np.allclose(alpha.sum(axis=1), 1.))
+
+    # # save model
+    # np.save(osp.expanduser('~/tmp/alpha.npy'), alpha)
+    # np.save(osp.expanduser('~/tmp/mu.npy'), mu)
+    # np.save(osp.expanduser('~/tmp/scale.npy'), scale)
+
+    # load model
+    print('Load parameters...')
+    alpha = np.load(osp.expanduser('~/tmp/alpha.npy'))
+    mu = np.load(osp.expanduser('~/tmp/mu.npy'))
+    scale = np.load(osp.expanduser('~/tmp/scale.npy'))
+
+    # gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+    gpu_options = tf.GPUOptions(allow_growth=True)
+    cp = tf.ConfigProto(gpu_options=gpu_options)
+
+    # sample
+    print('Sampling...')
+    t0 = time.time()
+    # n = len(alpha)
+    with tf.Session(config=cp) as sess:
+        # draws = M.sample_mixtures(10, alpha[:n], mu[:n], scale[:n],
+        #                           sample_func=sample_gaussian_numpy)
+        # draws = M.sample_mixture_vectorized(10, alpha[:n], mu[:n], scale[:n],
+        draws = M.sample_mixture_vectorized(100, alpha, mu, scale,
+                                            sample_func=sample_gaussian_tril,
+                                            debug=True)
+    t1 = time.time()
+    delta = t1 - t0
+    print(f'Time used (seconds): {delta:,.2f}')
+    print(draws.shape)
+    print(draws)
