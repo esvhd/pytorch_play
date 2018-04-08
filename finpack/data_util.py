@@ -18,6 +18,7 @@ def load_fx_10m_xy(test_size, y_shape_mode=0):
     train_x, test_x, train_y, test_y
     Shape is (nobs, dims, seq_len)
     '''
+    # file has data for first 50 vs last 6 prints
     h5_file = osp.expanduser('~/data/fx/fx_close_10m_xy2.h5')
     with h5py.File(h5_file, mode='r') as store:
         X = store['close_10m_X'][:]

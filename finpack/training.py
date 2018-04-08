@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+# import torch.nn as nn
 from torch.autograd import Variable
 
 import time
@@ -24,7 +24,11 @@ def train(model, loss, optimizer, x, y):
     return output
 
 
-def run_model(model, data):
+def numpy_value(value):
+    return value.data.cpu().numpy() if value.is_cuda else value.data.numpy()
+
+
+def run_training(model, data, loss_func, lr=3e-4, epochs=100, print_every=10):
     # load data
     print('Load data...')
     train_x, test_x, train_y, test_y = data
@@ -44,22 +48,21 @@ def run_model(model, data):
     print('Test X.shape: %s, Test y.shape: %s' %
           (test_x.shape, test_y.shape))
 
-    epochs = 100
-    lr = .001
     opt = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_func = nn.MSELoss(size_average=True)
+    # loss_func = nn.MSELoss(size_average=True)
 
-    print('\nTraining...')
+    print('\nSet to Training Mode, start training...')
     model.train()
+
     loss_hist = []
     for i in range(epochs):
         elapsed = time.time()
 
         loss = train(model, loss_func, opt, x_train, y_train)
-        loss_hist.append(loss)
+        loss_hist.append(numpy_value(loss)[0])
 
         elapsed = time.time() - elapsed
-        if i % 10 == 0:
+        if i % print_every == 0:
             print('Epoch %d, Time taken (s): %.3f, loss: %.5f' %
                   (i, elapsed, loss))
 
@@ -68,4 +71,4 @@ def run_model(model, data):
     test_loss = torch.nn.functional.mse_loss(y_hat, y_test, size_average=True)
     print('\nTest loss: %.5f' % test_loss)
 
-    return (loss_hist, test_loss)
+    return (loss_hist, numpy_value(test_loss)[0])
