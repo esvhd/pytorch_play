@@ -5,7 +5,7 @@ import tensorflow.contrib.keras as K
 import pandas as pd
 import numpy as np
 import scipy.stats as ss
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 def MultivariateGaussianTril(mu, scale):
