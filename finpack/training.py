@@ -28,7 +28,8 @@ def numpy_value(value):
     return value.data.cpu().numpy() if value.is_cuda else value.data.numpy()
 
 
-def run_training(model, data, loss_func, lr=3e-4, epochs=100, print_every=10):
+def run_training(model, data, loss_func, lr=3e-4, epochs=100, print_every=10,
+                 test_loss_func=None):
     # load data
     print('Load data...')
     train_x, test_x, train_y, test_y = data
@@ -63,12 +64,23 @@ def run_training(model, data, loss_func, lr=3e-4, epochs=100, print_every=10):
 
         elapsed = time.time() - elapsed
         if i % print_every == 0:
-            print('Epoch %d, Time taken (s): %.3f, loss: %.5f' %
-                  (i, elapsed, loss))
+            if test_loss_func is not None:
+                model.eval()
+                y_hat = model(x_test)
+                test_loss = test_loss_func(y_hat, y_test)
+                model.train()
 
-    model.eval()
-    y_hat = model(x_test)
-    test_loss = torch.nn.functional.mse_loss(y_hat, y_test, size_average=True)
-    print('\nTest loss: %.5f' % test_loss)
+                print('Epoch %d, Time taken (s): %.3f, training loss: %.5f, '
+                      'test loss: %.5f' %
+                      (i, elapsed, loss, test_loss))
+            else:
+                print('Epoch %d, Time taken (s): %.3f, training loss: %.5f' %
+                      (i, elapsed, loss))
+
+    if test_loss_func is not None:
+        model.eval()
+        y_hat = model(x_test)
+        test_loss = test_loss_func(y_hat, y_test)
+        print('\nFinal Test loss: %.5f' % test_loss)
 
     return (loss_hist, numpy_value(test_loss)[0])

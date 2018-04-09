@@ -84,10 +84,11 @@ def run_model():
     print('Test X.shape: %s, Test y.shape: %s' %
           (test_x.shape, test_y.shape))
 
-    epochs = 100
+    epochs = 500
     lr = .001
     opt = torch.optim.Adam(model.parameters(), lr=lr)
-    loss_func = nn.MSELoss(size_average=True)
+    # loss_func = nn.MSELoss(size_average=True)
+    loss_func = nn.L1Loss(size_average=True)
 
     print('\nTraining...')
     model.train()
