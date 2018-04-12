@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
+# from torch.autograd import Variable
+
+import training
 import data_util as du
 
-import time
+# import time
 import TCN.tcn as tcn
 
 
@@ -69,47 +71,16 @@ def run_model():
                   kernel_size=kernel_size,
                   dropout=dropout)
 
-    if torch.cuda.is_available():
-        print('Using GPU.')
-        x_train = Variable(torch.from_numpy(train_x).float()).cuda()
-        y_train = Variable(torch.from_numpy(train_y).float()).cuda()
-
-        x_test = Variable(torch.from_numpy(test_x).float()).cuda()
-        y_test = Variable(torch.from_numpy(test_y).float()).cuda()
-
-        model = model.cuda()
-
-    print('Train X.shape: %s, Train y.shape: %s' %
-          (train_x.shape, train_y.shape))
-    print('Test X.shape: %s, Test y.shape: %s' %
-          (test_x.shape, test_y.shape))
-
     epochs = 500
     lr = .001
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
-    # loss_func = nn.MSELoss(size_average=True)
     loss_func = nn.L1Loss(size_average=True)
 
-    print('\nTraining...')
-    model.train()
-    loss_hist = []
-    for i in range(epochs):
-        elapsed = time.time()
+    loss = training.run_training(model, (train_x, test_x, train_y, test_y),
+                                 loss_func, lr=lr, epochs=epochs,
+                                 print_every=100,
+                                 test_loss_func=torch.nn.functional.l1_loss)
 
-        loss = train(model, loss_func, opt, x_train, y_train)
-        loss_hist.append(loss)
-
-        elapsed = time.time() - elapsed
-        if i % 10 == 0:
-            print('Epoch %d, Time taken (s): %.3f, loss: %.5f' %
-                  (i, elapsed, loss))
-
-    model.eval()
-    y_hat = model(x_test)
-    test_loss = torch.nn.functional.mse_loss(y_hat, y_test, size_average=True)
-    print('\nTest loss: %.5f' % test_loss)
-
-    return (loss_hist, test_loss)
+    return loss
 
 
 if __name__ == '__main__':

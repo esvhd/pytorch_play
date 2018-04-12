@@ -29,30 +29,38 @@ def numpy_value(value):
 
 
 def run_training(model, data, loss_func, lr=3e-4, epochs=100, print_every=10,
-                 test_loss_func=None):
+                 test_loss_func=None, verbose=True):
     # load data
-    print('Load data...')
+    if verbose:
+        print('Load data...')
     train_x, test_x, train_y, test_y = data
 
     if torch.cuda.is_available():
-        print('Using GPU.')
-        x_train = Variable(torch.from_numpy(train_x).float()).cuda()
-        y_train = Variable(torch.from_numpy(train_y).float()).cuda()
+        if verbose:
+            print('Using GPU.')
+        x_train = Variable(torch.from_numpy(train_x).float(),
+                           requires_grad=False).cuda()
+        y_train = Variable(torch.from_numpy(train_y).float(),
+                           requires_grad=False).cuda()
 
-        x_test = Variable(torch.from_numpy(test_x).float()).cuda()
-        y_test = Variable(torch.from_numpy(test_y).float()).cuda()
+        x_test = Variable(torch.from_numpy(test_x).float(),
+                          requires_grad=False).cuda()
+        y_test = Variable(torch.from_numpy(test_y).float(),
+                          requires_grad=False).cuda()
 
         model = model.cuda()
 
-    print('Train X.shape: %s, Train y.shape: %s' %
-          (train_x.shape, train_y.shape))
-    print('Test X.shape: %s, Test y.shape: %s' %
-          (test_x.shape, test_y.shape))
+    if verbose:
+        print('Train X.shape: %s, Train y.shape: %s' %
+              (train_x.shape, train_y.shape))
+        print('Test X.shape: %s, Test y.shape: %s' %
+              (test_x.shape, test_y.shape))
 
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     # loss_func = nn.MSELoss(size_average=True)
 
-    print('\nSet to Training Mode, start training...')
+    if verbose:
+        print('\nSet to Training Mode, start training...')
     model.train()
 
     loss_hist = []

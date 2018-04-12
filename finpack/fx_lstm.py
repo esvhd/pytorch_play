@@ -151,10 +151,10 @@ def run_model(mode='LSTM'):
     print('Load data...')
     train_x, test_x, train_y, test_y = load_data(.2)
 
-    print('Train X.shape: %s, Train y.shape: %s' %
-          (train_x.shape, train_y.shape))
-    print('Test X.shape: %s, Test y.shape: %s' %
-          (test_x.shape, test_y.shape))
+    # print('Train X.shape: %s, Train y.shape: %s' %
+    #       (train_x.shape, train_y.shape))
+    # print('Test X.shape: %s, Test y.shape: %s' %
+    #       (test_x.shape, test_y.shape))
 
     input_dim = train_x.shape[-1]
     output_seq = train_y.shape[0]
